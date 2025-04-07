@@ -98,8 +98,8 @@ class DetSolver(BaseSolver):
             for category_id in coco_eval.cocoGt.getCatIds():
                 category_info = coco_eval.cocoGt.loadCats([category_id])[0]
                 category_name = category_info['name']
-                ap = prepare_eval_metric(precisions, category_id, "precision")
-                ar = prepare_eval_metric(recalls, category_id, "recall")
+                ap = prepare_eval_metric(precisions, category_id - 1, "precision")
+                ar = prepare_eval_metric(recalls, category_id - 1, "recall")
                 class_results[category_id] = {'name': category_name, 'mAP': ap, 'mAR': ar}
 
             # TODO 

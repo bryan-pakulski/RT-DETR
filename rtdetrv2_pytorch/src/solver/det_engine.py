@@ -44,7 +44,21 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         if scaler is not None:
             with torch.autocast(device_type=str(device), cache_enabled=True):
                 outputs = model(samples, targets=targets)
-            
+
+            if torch.isnan(outputs["pred_boxes"]).any() or torch.isinf(outputs["pred_boxes"]).any():
+                print(outputs["pred_boxes"])
+                state = model.state_dict()
+                new_state = {}
+                for key, value in model.state_dict().items():
+                    # Replace 'module' with 'model' in each key
+                    new_key = key.replace("module.", "")
+                    # Add the updated key-value pair to the state dictionary
+                    state[new_key] = value
+                new_state["model"] = state
+                dist_utils.save_on_master(new_state, "./NaN.pth")
+                print("NaN detected, saving model to NaN.pth")
+                print("See github issue: https://github.com/Peterande/D-FINE/issues/199")
+
             with torch.autocast(device_type=str(device), enabled=False):
                 loss_dict = criterion(outputs, targets, **metas)
 

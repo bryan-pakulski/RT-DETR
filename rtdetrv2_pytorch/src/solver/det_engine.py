@@ -120,8 +120,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     
     # TODO we should use .join(throw_on_early_termination=True) This is because this context manager is not aware of non-DDP collective communication. 
     # This flag will cause all ranks to throw when any one rank exhausts inputs, allowing these errors to be caught and recovered from across all ranks.
-    if dist_utils.is_parallel(self.model):
-        with self.model.join(throw_on_early_termination=True):
+    if dist_utils.is_parallel(model):
+        with model.join(throw_on_early_termination=True):
             _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler)
     else:
         _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler)

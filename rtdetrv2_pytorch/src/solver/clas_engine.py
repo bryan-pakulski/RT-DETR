@@ -41,8 +41,8 @@ def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimize
     print_freq = 100
     header = 'Epoch: [{}]'.format(epoch)
 
-    if dist_utils.is_parallel(self.model):
-        with self.model.join(throw_on_early_termination=True):
+    if dist_utils.is_parallel(model):
+        with model.join(throw_on_early_termination=True):
             _train(model, criterion, dataloader, optimizer, ema, epoch, print_freq, metric_logger, header)
     else:
         _train(model, criterion, dataloader, optimizer, ema, epoch, print_freq, metric_logger, header)

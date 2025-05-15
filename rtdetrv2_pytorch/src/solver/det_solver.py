@@ -56,7 +56,7 @@ class DetSolver(BaseSolver):
             # TODO we should use .join(throw_on_early_termination=True) This is because this context manager is not aware of non-DDP collective communication. 
             # This flag will cause all ranks to throw when any one rank exhausts inputs, allowing these errors to be caught and recovered from across all ranks.
             if dist_utils.is_parallel(self.model):
-                with self.model.join():
+                with Join([self.model, self.optimizer]): 
                     train_stats = train_one_epoch(
                         self.model, 
                         self.criterion, 

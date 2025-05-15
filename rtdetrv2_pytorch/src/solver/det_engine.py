@@ -122,9 +122,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     # This flag will cause all ranks to throw when any one rank exhausts inputs, allowing these errors to be caught and recovered from across all ranks.
     if dist_utils.is_parallel(model):
         with model.join(throw_on_early_termination=True):
-            _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler)
+            _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler)
     else:
-        _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler)
+        _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler)
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()

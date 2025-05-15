@@ -7,7 +7,7 @@ import torch.nn as nn
 from ..misc import (MetricLogger, SmoothedValue, reduce_dict)
 from ..misc import dist_utils
 
-def _train(model, criterion, dataloader, optimizer, ema, epoch, print_freq, metric_logger, header):
+def _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_freq, metric_logger, header):
     iterations = 0
     for imgs, labels in metric_logger.log_every(dataloader, print_freq, header):
 
@@ -43,9 +43,9 @@ def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimize
 
     if dist_utils.is_parallel(model):
         with model.join(throw_on_early_termination=True):
-            _train(model, criterion, dataloader, optimizer, ema, epoch, print_freq, metric_logger, header)
+            _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_freq, metric_logger, header)
     else:
-        _train(model, criterion, dataloader, optimizer, ema, epoch, print_freq, metric_logger, header)
+        _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_freq, metric_logger, header)
     
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

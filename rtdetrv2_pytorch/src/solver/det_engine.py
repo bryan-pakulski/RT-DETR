@@ -21,7 +21,17 @@ from ..misc import MetricLogger, SmoothedValue, dist_utils
 def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, max_norm, metric_logger, header):
     iterations = 0
 
+    do_random_skip = False
+
+    if (dist_utils.is_parallel() and dist_utils.get_rank() != 0):
+        do_random_skip = True
+
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
+
+        if (do_random_skip):
+            do_random_skip = False
+            continue
+
         dist_utils.gprint(f"rank {dist_utils.get_rank()}: iteration {i}")
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]

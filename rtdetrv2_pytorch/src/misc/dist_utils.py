@@ -153,7 +153,7 @@ def de_model(model):
 def warp_loader(loader, shuffle=False):        
     if is_dist_available_and_initialized():
         sampler = DistributedSampler(loader.dataset, shuffle=shuffle)
-        print(f"Got warped dataset for device {torch.cuda.current_device()} and rank {dist.get_rank()} and loader batch size: {loader.batch_size}")
+        print(f"Got warped dataset for device {torch.cuda.current_device()} and rank {get_rank()} and loader batch size: {loader.batch_size}")
         loader = DataLoader(loader.dataset, 
                             loader.batch_size, 
                             sampler=sampler, 

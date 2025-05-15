@@ -56,8 +56,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     state[new_key] = value
                 new_state["model"] = state
                 dist_utils.save_on_master(new_state, "./NaN.pth")
-                print("NaN detected, saving model to NaN.pth")
-                print("See github issue: https://github.com/Peterande/D-FINE/issues/199")
+                dist_utils.gprint("NaN detected, saving model to NaN.pth")
+                dist_utils.gprint("See github issue: https://github.com/Peterande/D-FINE/issues/199")
 
             with torch.autocast(device_type=str(device), enabled=False):
                 loss_dict = criterion(outputs, targets, **metas)
@@ -97,8 +97,8 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
         loss_value = sum(loss_dict_reduced.values())
 
         if not math.isfinite(loss_value):
-            print("Loss is {}, stopping training".format(loss_value))
-            print(loss_dict_reduced)
+            dist_utils.gprint("Loss is {}, stopping training".format(loss_value))
+            dist_utils.gprint(loss_dict_reduced)
             sys.exit(1)
 
         metric_logger.update(loss=loss_value, **loss_dict_reduced)

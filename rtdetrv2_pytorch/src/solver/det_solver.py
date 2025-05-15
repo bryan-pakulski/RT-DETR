@@ -52,20 +52,40 @@ class DetSolver(BaseSolver):
             if dist_utils.is_dist_available_and_initialized():
                 self.train_dataloader.sampler.set_epoch(epoch)
             
-            train_stats = train_one_epoch(
-                self.model, 
-                self.criterion, 
-                self.train_dataloader, 
-                self.optimizer, 
-                self.device, 
-                epoch, 
-                max_norm=args.clip_max_norm, 
-                print_freq=args.print_freq, 
-                ema=self.ema, 
-                scaler=self.scaler, 
-                lr_warmup_scheduler=self.lr_warmup_scheduler,
-                writer=self.writer
-            )
+
+            # TODO we should use .join(throw_on_early_termination=True) This is because this context manager is not aware of non-DDP collective communication. 
+            # This flag will cause all ranks to throw when any one rank exhausts inputs, allowing these errors to be caught and recovered from across all ranks.
+            if dist_utils.is_parallel(model):
+                with self.model.join():
+                    train_stats = train_one_epoch(
+                        self.model, 
+                        self.criterion, 
+                        self.train_dataloader, 
+                        self.optimizer, 
+                        self.device, 
+                        epoch, 
+                        max_norm=args.clip_max_norm, 
+                        print_freq=args.print_freq, 
+                        ema=self.ema, 
+                        scaler=self.scaler, 
+                        lr_warmup_scheduler=self.lr_warmup_scheduler,
+                        writer=self.writer
+                    )
+            else:
+                train_stats = train_one_epoch(
+                    self.model, 
+                    self.criterion, 
+                    self.train_dataloader, 
+                    self.optimizer, 
+                    self.device, 
+                    epoch, 
+                    max_norm=args.clip_max_norm, 
+                    print_freq=args.print_freq, 
+                    ema=self.ema, 
+                    scaler=self.scaler, 
+                    lr_warmup_scheduler=self.lr_warmup_scheduler,
+                    writer=self.writer
+                )
 
             if self.lr_warmup_scheduler is None or self.lr_warmup_scheduler.finished():
                 self.lr_scheduler.step()

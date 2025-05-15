@@ -19,7 +19,6 @@ def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimize
 
     for imgs, labels in metric_logger.log_every(dataloader, print_freq, header):
 
-        print(f"Using device.... {device} dataset sizse: {dataloader.batch_size}")
         imgs = imgs.to(device)
         labels = labels.to(device)
 

@@ -141,6 +141,8 @@ def warp_model(
 ):
     if is_dist_available_and_initialized():
         rank = get_rank()
+        # TODO: if we get model synchronisation failures using .join for non matched batch sizes we should use this:
+        # https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html#torch.nn.parallel.DistributedDataParallel.join
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model) if sync_bn else model 
         if dist_mode == 'dp':
             model = DP(model, device_ids=[rank], output_device=rank)

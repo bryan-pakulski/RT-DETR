@@ -47,7 +47,7 @@ def setup_distributed(print_rank: int=0, print_method: str='builtin', seed: int=
         torch.cuda.set_device(rank)
         torch.cuda.empty_cache()
         enabled_dist = True
-        print('Initialized distributed mode...')
+        print(f'Initialized distributed mode with config: rank: {rank}, world_size: {WORLD_SIZE}')
 
     except:
         enabled_dist = False

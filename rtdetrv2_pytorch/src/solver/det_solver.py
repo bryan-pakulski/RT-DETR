@@ -12,6 +12,7 @@ from ..misc import dist_utils, profiler_utils
 from ._solver import BaseSolver
 from .det_engine import train_one_epoch, evaluate
 
+
 def prepare_eval_metric(metric, catId, type):
     # type precision: (iou, recall, cls, area range, max dets)
     # type recall: (iou, cls, area range, max dets)
@@ -51,7 +52,6 @@ class DetSolver(BaseSolver):
             if dist_utils.is_dist_available_and_initialized():
                 self.train_dataloader.sampler.set_epoch(epoch)
             
-
             train_stats = train_one_epoch(
                 self.model, 
                 self.criterion, 

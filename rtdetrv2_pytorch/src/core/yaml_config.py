@@ -13,8 +13,6 @@ from ._config import BaseConfig
 from .workspace import create
 from .yaml_utils import load_config, merge_config, merge_dict
 
-from ..misc import dist_utils
-
 class YAMLConfig(BaseConfig):
     def __init__(self, cfg_path: str, **kwargs) -> None:
         super().__init__()
@@ -156,17 +154,14 @@ class YAMLConfig(BaseConfig):
         if total_batch_size is None:
             bs = cfg.get('batch_size')
         else:
-            try:
-                if 'device_batch_split' in cfg and len(cfg['device_batch_split']) > 0:
-                    dist_utils.gprint(f'Use batch size split {cfg["device_batch_split"][torch.cuda.current_device()]} with device {torch.cuda.current_device()}')
-                    bs = cfg['device_batch_split'][torch.cuda.current_device()]
-                    return bs
-                else:
-                    dist_utils.gprint(f'Use batch size {cfg["total_batch_size"]} with device {torch.cuda.current_device()}')
-            except Exception as e:
-                dist_utils.gprint(f'Error setting up batch size split for device {torch.cuda.current_device()}')
-                dist_utils.gprint(f'Error: {e}')
+            # Check if we are splitting the batch size across different size GPUS
+            if 'device_batch_split' in cfg and cfg['device_batch_split'].len() > 0:
+                print(f'Use batch size split {cfg["device_batch_split"][torch.cuda.current_device()]} with device {torch.cuda.current_device()}')
+                total_batch_size = cfg['device_batch_split'][torch.cuda.current_device()]
+            else:
+                print(f'Use batch size {cfg["total_batch_size"]} with device {torch.cuda.current_device()}')
 
+            from ..misc import dist_utils
             assert total_batch_size % dist_utils.get_world_size() == 0, \
                 'total_batch_size should be divisible by world size'
             bs = total_batch_size // dist_utils.get_world_size()
@@ -178,11 +173,7 @@ class YAMLConfig(BaseConfig):
         if 'total_batch_size' in global_cfg[name]:
             # pop unexpected key for dataloader init
             _ = global_cfg[name].pop('total_batch_size')
-
-        if 'device_batch_split' in global_cfg[name]:
-            # pop unexpected key for dataloader init
-            _ = global_cfg[name].pop('device_batch_split')
-        dist_utils.gprint(f'building {name} with batch_size={bs}...')
+        print(f'building {name} with batch_size={bs}...')
         loader = create(name, global_cfg, batch_size=bs)
         loader.shuffle = self.yaml_cfg[name].get('shuffle', False)      
         return loader

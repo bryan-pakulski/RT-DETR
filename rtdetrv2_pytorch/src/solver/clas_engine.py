@@ -5,12 +5,19 @@ import torch
 import torch.nn as nn 
 
 from ..misc import (MetricLogger, SmoothedValue, reduce_dict)
-from ..misc import dist_utils
 
-def _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_freq, metric_logger, header):
-    iterations = 0
+
+def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimizer, ema, epoch, device):
+    """
+    """
+    model.train()
+
+    metric_logger = MetricLogger(delimiter="  ")
+    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    print_freq = 100
+    header = 'Epoch: [{}]'.format(epoch)
+
     for imgs, labels in metric_logger.log_every(dataloader, print_freq, header):
-
         imgs = imgs.to(device)
         labels = labels.to(device)
 
@@ -27,25 +34,6 @@ def _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_fr
         loss_reduced_values = {k: v.item() for k, v in reduce_dict({'loss': loss}).items()}
         metric_logger.update(**loss_reduced_values)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-        iterations += 1
-    
-    dist_utils.gprint(f"rank: {dist_utils.get_rank()} Finished training with {iterations} iterations")
-
-def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimizer, ema, epoch, device):
-    """
-    """
-    model.train()
-
-    metric_logger = MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    print_freq = 100
-    header = 'Epoch: [{}]'.format(epoch)
-
-    if dist_utils.is_parallel(model):
-        with model.join(throw_on_early_termination=True):
-            _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_freq, metric_logger, header)
-    else:
-        _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_freq, metric_logger, header)
     
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

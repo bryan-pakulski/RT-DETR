@@ -24,9 +24,6 @@ from torch.utils.data import DistributedSampler
 # from torch.utils.data.dataloader import DataLoader
 from ..data import DataLoader 
 
-# Global print function overload, allows non master process to log
-def gprint(*args, **kwargs):
-    print(*args, **kwargs)
 
 def setup_distributed(print_rank: int=0, print_method: str='builtin', seed: int=None, ):
     """
@@ -50,7 +47,7 @@ def setup_distributed(print_rank: int=0, print_method: str='builtin', seed: int=
         torch.cuda.set_device(rank)
         torch.cuda.empty_cache()
         enabled_dist = True
-        print(f'Initialized distributed mode with config: rank: {rank}, world_size: {WORLD_SIZE}')
+        print('Initialized distributed mode...')
 
     except:
         enabled_dist = False
@@ -64,7 +61,6 @@ def setup_distributed(print_rank: int=0, print_method: str='builtin', seed: int=
 
 
 def setup_print(is_main, method='builtin'):
-    global gprint
     """This function disables printing when not in master process
     """
     import builtins as __builtin__
@@ -84,11 +80,7 @@ def setup_print(is_main, method='builtin'):
         if is_main or force:
             builtin_print(*args, **kwargs)
 
-    def gprint(*args, **kwargs):
-        builtin_print(*args, **kwargs)
-
     __builtin__.print = print
-    gprint=gprint
 
 
 def is_dist_available_and_initialized():
@@ -141,8 +133,6 @@ def warp_model(
 ):
     if is_dist_available_and_initialized():
         rank = get_rank()
-        # TODO: if we get model synchronisation failures using .join for non matched batch sizes we should use this:
-        # https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html#torch.nn.parallel.DistributedDataParallel.join
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model) if sync_bn else model 
         if dist_mode == 'dp':
             model = DP(model, device_ids=[rank], output_device=rank)
@@ -163,7 +153,6 @@ def de_model(model):
 def warp_loader(loader, shuffle=False):        
     if is_dist_available_and_initialized():
         sampler = DistributedSampler(loader.dataset, shuffle=shuffle)
-        gprint(f"Got warped dataset for device {torch.cuda.current_device()} and rank {get_rank()} and loader batch size: {loader.batch_size}")
         loader = DataLoader(loader.dataset, 
                             loader.batch_size, 
                             sampler=sampler, 

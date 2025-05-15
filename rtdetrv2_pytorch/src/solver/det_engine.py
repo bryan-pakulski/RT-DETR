@@ -18,22 +18,24 @@ from ..optim import ModelEMA, Warmup
 from ..data import CocoEvaluator
 from ..misc import MetricLogger, SmoothedValue, dist_utils
 
-def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, max_norm, metric_logger, header):
-    iterations = 0
 
-    do_random_skip = False
+def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
+                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
+                    device: torch.device, epoch: int, max_norm: float = 0, **kwargs):
+    model.train()
+    criterion.train()
+    metric_logger = MetricLogger(delimiter="  ")
+    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    header = 'Epoch: [{}]'.format(epoch)
+    
+    print_freq = kwargs.get('print_freq', 10)
+    writer :SummaryWriter = kwargs.get('writer', None)
 
-    # DDP RANDOM SKIP TEST...
-    if (dist_utils.is_parallel(model) and dist_utils.get_rank() != 0):
-        do_random_skip = True
+    ema :ModelEMA = kwargs.get('ema', None)
+    scaler :GradScaler = kwargs.get('scaler', None)
+    lr_warmup_scheduler :Warmup = kwargs.get('lr_warmup_scheduler', None)
 
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-
-        if (do_random_skip):
-            do_random_skip = False
-            continue
-
-        dist_utils.gprint(f"rank {dist_utils.get_rank()}: iteration {i}")
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         global_step = epoch * len(data_loader) + i
@@ -44,7 +46,7 @@ def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, 
                 outputs = model(samples, targets=targets)
 
             if torch.isnan(outputs["pred_boxes"]).any() or torch.isinf(outputs["pred_boxes"]).any():
-                dist_utils.gprint(outputs["pred_boxes"])
+                print(outputs["pred_boxes"])
                 state = model.state_dict()
                 new_state = {}
                 for key, value in model.state_dict().items():
@@ -54,8 +56,8 @@ def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, 
                     state[new_key] = value
                 new_state["model"] = state
                 dist_utils.save_on_master(new_state, "./NaN.pth")
-                dist_utils.gprint("NaN detected, saving model to NaN.pth")
-                dist_utils.gprint("See github issue: https://github.com/Peterande/D-FINE/issues/199")
+                print("NaN detected, saving model to NaN.pth")
+                print("See github issue: https://github.com/Peterande/D-FINE/issues/199")
 
             with torch.autocast(device_type=str(device), enabled=False):
                 loss_dict = criterion(outputs, targets, **metas)
@@ -95,8 +97,8 @@ def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, 
         loss_value = sum(loss_dict_reduced.values())
 
         if not math.isfinite(loss_value):
-            dist_utils.gprint("Loss is {}, stopping training".format(loss_value))
-            dist_utils.gprint(loss_dict_reduced)
+            print("Loss is {}, stopping training".format(loss_value))
+            print(loss_dict_reduced)
             sys.exit(1)
 
         metric_logger.update(loss=loss_value, **loss_dict_reduced)
@@ -108,36 +110,7 @@ def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, 
                 writer.add_scalar(f'Lr/pg_{j}', pg['lr'], global_step)
             for k, v in loss_dict_reduced.items():
                 writer.add_scalar(f'Loss/{k}', v.item(), global_step)
-        
-        iterations += 1
-    
-    dist_utils.gprint(f"rank: {dist_utils.get_rank()} Finished training with {iterations} iterations")
-
-def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
-                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int, max_norm: float = 0, **kwargs):
-    model.train()
-    criterion.train()
-    metric_logger = MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    header = 'Epoch: [{}]'.format(epoch)
-    
-    print_freq = kwargs.get('print_freq', 10)
-    writer :SummaryWriter = kwargs.get('writer', None)
-
-    ema :ModelEMA = kwargs.get('ema', None)
-    scaler :GradScaler = kwargs.get('scaler', None)
-    lr_warmup_scheduler :Warmup = kwargs.get('lr_warmup_scheduler', None)
-
-    
-    # TODO we should use .join(throw_on_early_termination=True) This is because this context manager is not aware of non-DDP collective communication. 
-    # This flag will cause all ranks to throw when any one rank exhausts inputs, allowing these errors to be caught and recovered from across all ranks.
-    if dist_utils.is_parallel(model):
-        with model.join(throw_on_early_termination=True):
-            _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, max_norm, metric_logger, header)
-    else:
-        _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, max_norm, metric_logger, header)
-
+                
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

@@ -160,8 +160,6 @@ class YAMLConfig(BaseConfig):
                     print(f'Use batch size split {cfg["device_batch_split"][torch.cuda.current_device()]} with device {torch.cuda.current_device()}')
                     bs = cfg['device_batch_split'][torch.cuda.current_device()]
                     return bs
-                else:
-                    print(f'Using default batch size {cfg["total_batch_size"]} with device {torch.cuda.current_device()}')
             except Exception as e:
                 print(f'Error setting up batch size split for device {torch.cuda.current_device()}')
                 print(f'Error: {e}')

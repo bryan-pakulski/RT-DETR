@@ -11,6 +11,7 @@ from ..misc import dist_utils, profiler_utils
 
 from ._solver import BaseSolver
 from .det_engine import train_one_epoch, evaluate
+from torch.distributed.algorithms.join import Join
 
 
 def prepare_eval_metric(metric, catId, type):

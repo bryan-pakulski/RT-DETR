@@ -18,7 +18,7 @@ from ..optim import ModelEMA, Warmup
 from ..data import CocoEvaluator
 from ..misc import MetricLogger, SmoothedValue, dist_utils
 
-def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler, max_norm, metric_logger, header):
+def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, max_norm, metric_logger, header):
     iterations = 0
 
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):

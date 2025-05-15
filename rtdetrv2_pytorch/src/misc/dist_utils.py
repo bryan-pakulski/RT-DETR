@@ -24,6 +24,8 @@ from torch.utils.data import DistributedSampler
 # from torch.utils.data.dataloader import DataLoader
 from ..data import DataLoader 
 
+# Global print function overload, allows non master process to log
+gprint = None
 
 def setup_distributed(print_rank: int=0, print_method: str='builtin', seed: int=None, ):
     """
@@ -61,6 +63,7 @@ def setup_distributed(print_rank: int=0, print_method: str='builtin', seed: int=
 
 
 def setup_print(is_main, method='builtin'):
+    global gprint
     """This function disables printing when not in master process
     """
     import builtins as __builtin__
@@ -80,7 +83,11 @@ def setup_print(is_main, method='builtin'):
         if is_main or force:
             builtin_print(*args, **kwargs)
 
+    def gprint(*args, **kwargs):
+        builtin_print(*args, **kwargs)
+
     __builtin__.print = print
+    gprint=gprint
 
 
 def is_dist_available_and_initialized():
@@ -153,7 +160,7 @@ def de_model(model):
 def warp_loader(loader, shuffle=False):        
     if is_dist_available_and_initialized():
         sampler = DistributedSampler(loader.dataset, shuffle=shuffle)
-        print(f"Got warped dataset for device {torch.cuda.current_device()} and rank {get_rank()} and loader batch size: {loader.batch_size}")
+        gprint(f"Got warped dataset for device {torch.cuda.current_device()} and rank {get_rank()} and loader batch size: {loader.batch_size}")
         loader = DataLoader(loader.dataset, 
                             loader.batch_size, 
                             sampler=sampler, 

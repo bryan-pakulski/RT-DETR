@@ -33,25 +33,13 @@ class ClasSolver(BaseSolver):
             if dist_utils.is_dist_available_and_initialized():
                 self.train_dataloader.sampler.set_epoch(epoch)
             
-            # TODO we should use .join(throw_on_early_termination=True) This is because this context manager is not aware of non-DDP collective communication. 
-            # This flag will cause all ranks to throw when any one rank exhausts inputs, allowing these errors to be caught and recovered from across all ranks.
-            if dist_utils.is_parallel(self.model):
-                with self.model.join(throw_on_early_termination=True):
-                    train_stats = train_one_epoch(self.model, 
-                                            self.criterion, 
-                                            self.train_dataloader, 
-                                            self.optimizer, 
-                                            self.ema, 
-                                            epoch=epoch, 
-                                            device=self.device)
-            else:
-                train_stats = train_one_epoch(self.model, 
-                                        self.criterion, 
-                                        self.train_dataloader, 
-                                        self.optimizer, 
-                                        self.ema, 
-                                        epoch=epoch, 
-                                        device=self.device)
+            train_stats = train_one_epoch(self.model, 
+                                    self.criterion, 
+                                    self.train_dataloader, 
+                                    self.optimizer, 
+                                    self.ema, 
+                                    epoch=epoch, 
+                                    device=self.device)
             self.lr_scheduler.step()
             self.last_epoch += 1
 

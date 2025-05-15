@@ -18,22 +18,8 @@ from ..optim import ModelEMA, Warmup
 from ..data import CocoEvaluator
 from ..misc import MetricLogger, SmoothedValue, dist_utils
 
-
-def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
-                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
-                    device: torch.device, epoch: int, max_norm: float = 0, **kwargs):
-    model.train()
-    criterion.train()
-    metric_logger = MetricLogger(delimiter="  ")
-    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
-    header = 'Epoch: [{}]'.format(epoch)
-    
-    print_freq = kwargs.get('print_freq', 10)
-    writer :SummaryWriter = kwargs.get('writer', None)
-
-    ema :ModelEMA = kwargs.get('ema', None)
-    scaler :GradScaler = kwargs.get('scaler', None)
-    lr_warmup_scheduler :Warmup = kwargs.get('lr_warmup_scheduler', None)
+def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler):
+    iterations = 0
 
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         samples = samples.to(device)
@@ -110,7 +96,36 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                 writer.add_scalar(f'Lr/pg_{j}', pg['lr'], global_step)
             for k, v in loss_dict_reduced.items():
                 writer.add_scalar(f'Loss/{k}', v.item(), global_step)
-                
+        
+        iterations += 1
+    
+    dist_utils.gprint(f"rank: {dist_utils.get_rank()} Finished training with {iterations} iterations")
+
+def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
+                    data_loader: Iterable, optimizer: torch.optim.Optimizer,
+                    device: torch.device, epoch: int, max_norm: float = 0, **kwargs):
+    model.train()
+    criterion.train()
+    metric_logger = MetricLogger(delimiter="  ")
+    metric_logger.add_meter('lr', SmoothedValue(window_size=1, fmt='{value:.6f}'))
+    header = 'Epoch: [{}]'.format(epoch)
+    
+    print_freq = kwargs.get('print_freq', 10)
+    writer :SummaryWriter = kwargs.get('writer', None)
+
+    ema :ModelEMA = kwargs.get('ema', None)
+    scaler :GradScaler = kwargs.get('scaler', None)
+    lr_warmup_scheduler :Warmup = kwargs.get('lr_warmup_scheduler', None)
+
+    
+    # TODO we should use .join(throw_on_early_termination=True) This is because this context manager is not aware of non-DDP collective communication. 
+    # This flag will cause all ranks to throw when any one rank exhausts inputs, allowing these errors to be caught and recovered from across all ranks.
+    if dist_utils.is_parallel(self.model):
+        with self.model.join(throw_on_early_termination=True):
+            _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler)
+    else:
+        _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler)
+
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)

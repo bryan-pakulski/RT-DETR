@@ -155,11 +155,16 @@ class YAMLConfig(BaseConfig):
             bs = cfg.get('batch_size')
         else:
             # Check if we are splitting the batch size across different size GPUS
-            if 'device_batch_split' in cfg and cfg['device_batch_split'].len() > 0:
-                print(f'Use batch size split {cfg["device_batch_split"][torch.cuda.current_device()]} with device {torch.cuda.current_device()}')
-                total_batch_size = cfg['device_batch_split'][torch.cuda.current_device()]
-            else:
-                print(f'Use batch size {cfg["total_batch_size"]} with device {torch.cuda.current_device()}')
+            try:
+                if 'device_batch_split' in cfg and len(cfg['device_batch_split']) > 0:
+                    print(f'Use batch size split {cfg["device_batch_split"][torch.cuda.current_device()]} with device {torch.cuda.current_device()}')
+                    total_batch_size = cfg['device_batch_split'][torch.cuda.current_device()]
+                else:
+                    print(f'Use batch size {cfg["total_batch_size"]} with device {torch.cuda.current_device()}')
+            except Exception as e:
+                print(f'Error setting up batch size split for device {torch.cuda.current_device()}')
+                print(f'Error: {e}')
+                exit(1)
 
             from ..misc import dist_utils
             assert total_batch_size % dist_utils.get_world_size() == 0, \

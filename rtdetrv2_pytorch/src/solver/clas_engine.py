@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn 
 
 from ..misc import (MetricLogger, SmoothedValue, reduce_dict)
+from ..misc import dist_utils
 
 
 def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimizer, ema, epoch, device):
@@ -17,6 +18,7 @@ def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimize
     print_freq = 100
     header = 'Epoch: [{}]'.format(epoch)
 
+    iterations = 0
     for imgs, labels in metric_logger.log_every(dataloader, print_freq, header):
 
         imgs = imgs.to(device)
@@ -35,7 +37,9 @@ def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimize
         loss_reduced_values = {k: v.item() for k, v in reduce_dict({'loss': loss}).items()}
         metric_logger.update(**loss_reduced_values)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
+        iterations += 1
     
+    dist_utils.gprint(f"rank: {dist_utils.get_rank()} Finished training with {iterations} iterations")
     metric_logger.synchronize_between_processes()
     print("Averaged stats:", metric_logger)
 

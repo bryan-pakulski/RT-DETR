@@ -25,7 +25,8 @@ from torch.utils.data import DistributedSampler
 from ..data import DataLoader 
 
 # Global print function overload, allows non master process to log
-gprint = None
+def gprint(*args, **kwargs):
+    print(*args, **kwargs)
 
 def setup_distributed(print_rank: int=0, print_method: str='builtin', seed: int=None, ):
     """

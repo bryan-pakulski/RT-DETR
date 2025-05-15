@@ -13,6 +13,8 @@ from ._config import BaseConfig
 from .workspace import create
 from .yaml_utils import load_config, merge_config, merge_dict
 
+from ..misc import dist_utils
+
 class YAMLConfig(BaseConfig):
     def __init__(self, cfg_path: str, **kwargs) -> None:
         super().__init__()
@@ -154,7 +156,6 @@ class YAMLConfig(BaseConfig):
         if total_batch_size is None:
             bs = cfg.get('batch_size')
         else:
-            # Check if we are splitting the batch size across different size GPUS
             try:
                 if 'device_batch_split' in cfg and len(cfg['device_batch_split']) > 0:
                     dist_utils.gprint(f'Use batch size split {cfg["device_batch_split"][torch.cuda.current_device()]} with device {torch.cuda.current_device()}')
@@ -166,7 +167,6 @@ class YAMLConfig(BaseConfig):
                 dist_utils.gprint(f'Error setting up batch size split for device {torch.cuda.current_device()}')
                 dist_utils.gprint(f'Error: {e}')
 
-            from ..misc import dist_utils
             assert total_batch_size % dist_utils.get_world_size() == 0, \
                 'total_batch_size should be divisible by world size'
             bs = total_batch_size // dist_utils.get_world_size()

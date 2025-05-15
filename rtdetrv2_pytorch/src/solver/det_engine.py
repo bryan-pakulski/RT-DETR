@@ -18,7 +18,7 @@ from ..optim import ModelEMA, Warmup
 from ..data import CocoEvaluator
 from ..misc import MetricLogger, SmoothedValue, dist_utils
 
-def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler, metric_logger):
+def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, emai, scaler, lr_warmup_scheduler, metric_logger, header):
     iterations = 0
 
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
@@ -122,9 +122,9 @@ def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
     # This flag will cause all ranks to throw when any one rank exhausts inputs, allowing these errors to be caught and recovered from across all ranks.
     if dist_utils.is_parallel(model):
         with model.join(throw_on_early_termination=True):
-            _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, metric_logger)
+            _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, metric_logger, header)
     else:
-        _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, metric_logger)
+        _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, metric_logger, header)
 
     # gather the stats from all processes
     metric_logger.synchronize_between_processes()

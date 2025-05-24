@@ -21,6 +21,8 @@ from ..misc import MetricLogger, SmoothedValue, dist_utils
 def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, max_norm, metric_logger, header):
     iterations = 0
 
+    dist_utils.gprint(f"DET ENGINE: Dataloader length: {len(data_loader)} for rank: {dist_utils.get_rank()}")
+
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
         dist_utils.gprint(f"rank {dist_utils.get_rank()}: iteration {i}")
         samples = samples.to(device)

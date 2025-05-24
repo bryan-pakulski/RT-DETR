@@ -12,6 +12,8 @@ def _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_fr
 
     do_random_skip = False
 
+    dist_utils.gprint(f"CLAS ENGINE: Dataloader length: {len(data_loader)} for rank: {dist_utils.get_rank()}")
+
     # Check if we are using DDP and require syncing dynamic batch sizes
     if dist_utils.is_parallel(model) and dist_utils.get_rank != 0:
         do_random_skip = True

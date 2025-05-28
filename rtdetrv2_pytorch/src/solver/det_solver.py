@@ -58,14 +58,12 @@ class DetSolver(BaseSolver):
             # lengths due to batch size where number_of_train_iterations = dataset_size / batch_size which
             # will cause hanging while we wait for each GPU to finish training and the first gpu to finish is calling for a sync
             # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
+            # NOTE: for validation we don't want to split into minibatches as we want to make sure that we are fully evaluating the model
             if (dist_utils.is_parallel(self.model) and len(args.device_batch_split) > 0):
                 dist_utils.gprint("Building minibatch subset for training...")
                 train_subset = dist_utils.subset_dataset_by_rank(args, self.train_dataloader, args._train_dataloader, args._train_shuffle)
-                dist_utils.gprint("Building minibatch subset for validation...")
-                val_subset = dist_utils.subset_dataset_by_rank(args, self.val_dataloader, args._val_dataloader, args._val_shuffle)
             else:
                 train_subset = self.train_dataloader
-                val_subset = self.val_dataloader
 
             train_stats = train_one_epoch(
                 self.model, 
@@ -100,7 +98,7 @@ class DetSolver(BaseSolver):
                 module, 
                 self.criterion, 
                 self.postprocessor, 
-                val_subset, 
+                self.val_dataloader, 
                 self.evaluator, 
                 self.device
             )
@@ -170,19 +168,8 @@ class DetSolver(BaseSolver):
         self.eval()
         
         module = self.ema.module if self.ema else self.model
-
-        # NOTE: when using dynamic batch sizing for mixed gpu training our datasets can have different
-        # lengths due to batch size where number_of_train_iterations = dataset_size / batch_size which
-        # will cause hanging while we wait for each GPU to finish training and the first gpu to finish is calling for a sync
-        # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
-        args = self.cfg
-        if (dist_utils.is_parallel(self.model) and len(args.device_batch_split) > 0):
-            subset = dist_utils.subset_dataset_by_rank(args, self.val_dataloader, args._val_dataloader, args._val_shuffle)
-        else:
-            subset = self.val_dataloader
-
         test_stats, coco_evaluator = evaluate(module, self.criterion, self.postprocessor,
-                subset, self.evaluator, self.device)
+                self.val_dataloader, self.evaluator, self.device)
                 
         if self.output_dir:
             dist_utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, self.output_dir / "eval.pth")

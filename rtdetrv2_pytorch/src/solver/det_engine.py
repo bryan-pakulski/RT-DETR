@@ -24,7 +24,7 @@ def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, 
     dist_utils.gprint(f"DET ENGINE: Dataloader length: {len(data_loader)} for rank: {dist_utils.get_rank()}")
 
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-        dist_utils.gprint(f"rank {dist_utils.get_rank()}: iteration {i}")
+        #dist_utils.gprint(f"rank {dist_utils.get_rank()}: iteration {i}")
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         global_step = epoch * len(data_loader) + i

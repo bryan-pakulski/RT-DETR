@@ -8,8 +8,7 @@ import datetime
 import torch 
 
 from ..misc import dist_utils, profiler_utils
-from ..misc.dist_utils import gprint 
-
+from ..misc.dist_utils import gprint
 
 from ._solver import BaseSolver
 from .det_engine import train_one_epoch, evaluate
@@ -59,14 +58,28 @@ class DetSolver(BaseSolver):
             # lengths due to batch size where number_of_train_iterations = dataset_size / batch_size which
             # will cause hanging while we wait for each GPU to finish training and the first gpu to finish is calling for a sync
             # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
-            if (dist_utils.is_parallel(self.model) and args.total_batch_size is not None):
-                minibatch_size = (len(self.train_dataloader) * args.total_batch_size) * args.batch_size
-                subset = torch.utils.data.Subset(self.train_dataloader, range(0, len(minibatch_size)))
-                gprint("Training subset size: {}/{} for rank: {}".format(len(subset), (len(self.train_dataloader) * args.total_batch_size), dist_utils.get_rank()))
+            if (dist_utils.is_parallel(self.model) and len(args.device_batch_split) > 0):
+                _total_size = len(self.train_dataloader) * args.train_dataloader.batch_size
+                _minibatch_size = (_total_size // args.total_batch_size) * args.train_dataloader.batch_size
+
+                # Calculate the offset for our subset of the dataset based on rank position of the current gpu, this should mean that we guarantee the whole dataset is seen per each epoch
+                _entries_per_batch = _total_size // args.total_batch_size
+                _start_idx = 0
+                for idx, b in enumerate(args.device_batch_split):
+                    if idx == dist_utils.get_rank():
+                        break
+                    start_idx += b * _entries_per_batch                
+                subset =  torch.utils.data.DataLoader(torch.utils.data.Subset(self.train_dataloader.dataset, range(start_idx, _start_idx + _minibatch_size)),  
+                                batch_size=args.train_dataloader.batch_size, 
+                                num_workers=args.train_dataloader.num_workers, 
+                                collate_fn=args.train_dataloader.collate_fn,
+                                shuffle=args._train_shuffle,)
+                subset = dist_utils.warp_loader(subset, shuffle=args._train_shuffle)
+
+                gprint(f"training minibatch subset index: {start_idx} -> {_start_idx + _minibatch_size} for rank: {dist_utils.get_rank()}")
+                gprint(f"total training size: {_minibatch_size}/{_total_size} for rank: {dist_utils.get_rank()}")
             else:
                 subset = self.train_dataloader
-
-            
 
             train_stats = train_one_epoch(
                 self.model, 
@@ -171,8 +184,37 @@ class DetSolver(BaseSolver):
         self.eval()
         
         module = self.ema.module if self.ema else self.model
+
+        # NOTE: when using dynamic batch sizing for mixed gpu training our datasets can have different
+        # lengths due to batch size where number_of_train_iterations = dataset_size / batch_size which
+        # will cause hanging while we wait for each GPU to finish training and the first gpu to finish is calling for a sync
+        # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
+        args = self.cfg
+        if (dist_utils.is_parallel(self.model) and len(args.device_batch_split) > 0):
+            _total_size = len(self.val_dataloader) * args.val_dataloader.batch_size
+            _minibatch_size = (_total_size // args.total_batch_size) * args.val_dataloader.batch_size
+
+            # Calculate the offset for our subset of the dataset based on rank position of the current gpu, this should mean that we guarantee the whole dataset is seen per each epoch
+            _entries_per_batch = _total_size // args.total_batch_size
+            _start_idx = 0
+            for idx, b in enumerate(args.device_batch_split):
+                if idx == dist_utils.get_rank():
+                    break
+                start_idx += b * _entries_per_batch                
+            subset =  torch.utils.data.DataLoader(torch.utils.data.Subset(self.val_dataloader.dataset, range(start_idx, _start_idx + _minibatch_size)),  
+                            batch_size=args.val_dataloader.batch_size, 
+                            num_workers=args.val_dataloader.num_workers, 
+                            collate_fn=args.val_dataloader.collate_fn,
+                            shuffle=args._train_shuffle,)
+            subset = dist_utils.warp_loader(subset, shuffle=args._train_shuffle)
+
+            gprint(f"validation minibatch subset index: {start_idx} -> {_start_idx + _minibatch_size} for rank: {dist_utils.get_rank()}")
+            gprint(f"total validation size: {_minibatch_size}/{_total_size} for rank: {dist_utils.get_rank()}")
+        else:
+            subset = self.val_dataloader
+
         test_stats, coco_evaluator = evaluate(module, self.criterion, self.postprocessor,
-                self.val_dataloader, self.evaluator, self.device)
+                subset, self.evaluator, self.device)
                 
         if self.output_dir:
             dist_utils.save_on_master(coco_evaluator.coco_eval["bbox"].eval, self.output_dir / "eval.pth")

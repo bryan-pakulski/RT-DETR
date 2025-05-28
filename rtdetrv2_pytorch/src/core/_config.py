@@ -45,6 +45,7 @@ class BaseConfig(object):
         self.num_workers :int = 0
         self.batch_size :int = None
         self.total_batch_size :int = None
+        self.device_batch_split :list = [] # This is only set when we set custom batch sizes to be split across multiple GPUs
         self._train_batch_size :int = None
         self._val_batch_size :int = None
         self._train_shuffle: bool = None  

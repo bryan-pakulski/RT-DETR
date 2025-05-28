@@ -181,7 +181,7 @@ class YAMLConfig(BaseConfig):
 
         if 'device_batch_split' in global_cfg[name]:
             # pop unexpected key for dataloader init
-            _ = global_cfg[name].pop('device_batch_split')
+            device_batch_split = global_cfg[name].pop('device_batch_split')
         dist_utils.gprint(f'building {name} with batch_size={bs}...')
         loader = create(name, global_cfg, batch_size=bs)
         loader.shuffle = self.yaml_cfg[name].get('shuffle', False)      

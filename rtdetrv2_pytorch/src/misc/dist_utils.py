@@ -119,6 +119,8 @@ def subset_dataset_by_rank(config, dataloader):
 
     gprint(f"minibatch subset index: {_start_idx} -> {_start_idx + _minibatch_size} for rank: {get_rank()}")
     gprint(f"total minibatch size: {_minibatch_size}/{_total_size} for rank: {get_rank()}")
+    
+    return subset
 
 @atexit.register
 def cleanup():

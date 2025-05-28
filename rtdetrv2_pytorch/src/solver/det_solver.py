@@ -59,7 +59,7 @@ class DetSolver(BaseSolver):
             # lengths due to batch size where number_of_train_iterations = dataset_size / batch_size which
             # will cause hanging while we wait for each GPU to finish training and the first gpu to finish is calling for a sync
             # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
-            if (dist_utils.is_parallel(self.model)):
+            if (dist_utils.is_parallel(self.model) and args.total_batch_size is not None):
                 minibatch_size = (len(self.train_dataloader) * args.total_batch_size) * args.batch_size
                 subset = torch.utils.data.Subset(self.train_dataloader, range(0, len(minibatch_size)))
                 gprint("Training subset size: {}/{} for rank: {}".format(len(subset), (len(self.train_dataloader) * args.total_batch_size), dist_utils.get_rank()))

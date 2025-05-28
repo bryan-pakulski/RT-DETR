@@ -177,7 +177,7 @@ class YAMLConfig(BaseConfig):
         global_cfg = self.global_cfg
         if 'total_batch_size' in global_cfg[name]:
             # pop unexpected key for dataloader init
-            _ = global_cfg[name].pop('total_batch_size')
+            self.total_batch_size = global_cfg[name].pop('total_batch_size')
 
         if 'device_batch_split' in global_cfg[name]:
             # pop unexpected key for dataloader init

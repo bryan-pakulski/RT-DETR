@@ -44,6 +44,7 @@ class BaseConfig(object):
         # dataset 
         self.num_workers :int = 0
         self.batch_size :int = None
+        self.total_batch_size :int = None
         self._train_batch_size :int = None
         self._val_batch_size :int = None
         self._train_shuffle: bool = None  

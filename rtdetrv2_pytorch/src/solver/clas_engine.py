@@ -12,19 +12,12 @@ def _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_fr
 
     do_random_skip = False
 
-    dist_utils.gprint(f"CLAS ENGINE: Dataloader length: {len(data_loader)} for rank: {dist_utils.get_rank()}")
-
-    # Check if we are using DDP and require syncing dynamic batch sizes
-    if dist_utils.is_parallel(model) and dist_utils.get_rank != 0:
-        do_random_skip = True
+    dist_utils.gprint(f"CLAS ENGINE: Dataloader length: {len(dataloader)} for rank: {dist_utils.get_rank()}")
 
     for imgs, labels in metric_logger.log_every(dataloader, print_freq, header):
 
-        # If this worker process has unevenly sized batches, we want to use no_sync to accumulate gradients on the
+        # TODO: If this worker process has unevenly sized batches, we want to use no_sync to accumulate gradients on the
         # First iteration so that we can synchronize properly once the epoch is complete
-        if (do_random_skip):
-            do_random_skip = False
-            continue
 
         imgs = imgs.to(device)
         labels = labels.to(device)

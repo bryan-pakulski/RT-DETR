@@ -8,6 +8,8 @@ import datetime
 import torch 
 
 from ..misc import dist_utils, profiler_utils
+from ..misc.dist_utils import gprint 
+
 
 from ._solver import BaseSolver
 from .det_engine import train_one_epoch, evaluate
@@ -33,6 +35,8 @@ class DetSolver(BaseSolver):
     
     def fit(self, ):
         print("Start training")
+
+        # This sets up config, data loaders, optimizers, ema etc...
         self.train()
         args = self.cfg
 
@@ -51,11 +55,23 @@ class DetSolver(BaseSolver):
             if dist_utils.is_dist_available_and_initialized():
                 self.train_dataloader.sampler.set_epoch(epoch)
             
+            # NOTE: when using dynamic batch sizing for mixed gpu training our datasets can have different
+            # lengths due to batch size where number_of_train_iterations = dataset_size / batch_size which
+            # will cause hanging while we wait for each GPU to finish training and the first gpu to finish is calling for a sync
+            # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
+            if (dist_utils.is_parallel(self.model)):
+                minibatch_size = (len(self.train_dataloader) * args.total_batch_size) * args.batch_size
+                subset = torch.utils.data.Subset(self.train_dataloader, range(0, len(minibatch_size)))
+                gprint("Training subset size: {}/{} for rank: {}".format(len(subset), (len(self.train_dataloader) * args.total_batch_size), dist_utils.get_rank()))
+            else:
+                subset = self.train_dataloader
+
+            
 
             train_stats = train_one_epoch(
                 self.model, 
                 self.criterion, 
-                self.train_dataloader, 
+                subset, 
                 self.optimizer, 
                 self.device, 
                 epoch, 

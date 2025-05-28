@@ -50,11 +50,11 @@ def setup_distributed(print_rank: int=0, print_method: str='builtin', seed: int=
         torch.cuda.set_device(rank)
         torch.cuda.empty_cache()
         enabled_dist = True
-        print(f'Initialized distributed mode with config: rank: {rank}, world_size: {WORLD_SIZE}')
+        gprint(f'Initialized distributed mode with config: rank: {rank}, world_size: {WORLD_SIZE}')
 
     except:
         enabled_dist = False
-        print('Not init distributed mode.')
+        gprint('Not init distributed mode.')
 
     setup_print(get_rank() == print_rank, method=print_method)
     if seed is not None:

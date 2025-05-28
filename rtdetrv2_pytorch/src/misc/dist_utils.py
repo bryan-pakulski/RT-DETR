@@ -99,9 +99,9 @@ def is_dist_available_and_initialized():
     return True
 
 # This is used to split the dataset into mini batches for GPU's with different memory sizes
-def subset_dataset_by_rank(config, dataloader):
-    _total_size = len(dataloader) * config.train_dataloader.batch_size
-    _minibatch_size = (_total_size // config.total_batch_size) * config.train_dataloader.batch_size
+def subset_dataset_by_rank(config, dataloader, config_dataloader, shuffle=False):
+    _total_size = len(dataloader) * config_dataloader.batch_size
+    _minibatch_size = (_total_size // config.total_batch_size) * config_dataloader.batch_size
 
     # Calculate the offset for our subset of the dataset based on rank position of the current gpu, this should mean that we guarantee the whole dataset is seen per each epoch
     _entries_per_batch = _total_size // config.total_batch_size
@@ -111,11 +111,11 @@ def subset_dataset_by_rank(config, dataloader):
             break
         _start_idx += b * _entries_per_batch                
     subset =  torch.utils.data.DataLoader(torch.utils.data.Subset(dataloader.dataset, range(_start_idx, _start_idx + _minibatch_size)),  
-                    batch_size=config.train_dataloader.batch_size, 
-                    num_workers=config.train_dataloader.num_workers, 
-                    collate_fn=config.train_dataloader.collate_fn,
-                    shuffle=config._train_shuffle,)
-    subset = warp_loader(subset, shuffle=config._train_shuffle)
+                    batch_size=config_dataloader.batch_size, 
+                    num_workers=config_dataloader.num_workers, 
+                    collate_fn=config_dataloader.collate_fn,
+                    shuffle=shuffle,)
+    subset = warp_loader(subset, shuffle=config)
 
     gprint(f"minibatch subset index: {_start_idx} -> {_start_idx + _minibatch_size} for rank: {get_rank()}")
     gprint(f"total minibatch size: {_minibatch_size}/{_total_size} for rank: {get_rank()}")

@@ -59,7 +59,7 @@ class DetSolver(BaseSolver):
             # will cause hanging while we wait for each GPU to finish training and the first gpu to finish is calling for a sync
             # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
             if (dist_utils.is_parallel(self.model) and len(args.device_batch_split) > 0):
-                subset = dist_utils.subset_dataset_by_rank(args, self.train_dataloader)
+                subset = dist_utils.subset_dataset_by_rank(args, self.train_dataloader, args._train_dataloader, args._train_shuffle)
             else:
                 subset = self.train_dataloader
 
@@ -173,7 +173,7 @@ class DetSolver(BaseSolver):
         # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
         args = self.cfg
         if (dist_utils.is_parallel(self.model) and len(args.device_batch_split) > 0):
-            subset = dist_utils.subset_dataset_by_rank(args, self.val_dataloader)
+            subset = dist_utils.subset_dataset_by_rank(args, self.val_dataloader, args._val_dataloader, args._val_shuffle)
         else:
             subset = self.val_dataloader
 

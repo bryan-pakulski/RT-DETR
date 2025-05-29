@@ -110,7 +110,7 @@ def subset_dataset_by_rank(config, dataset, loader, shuffle=False):
         if idx == get_rank():
             break
         _start_idx += b * _entries_per_batch                
-    subset =  torch.utils.data.DataLoader(torch.utils.data.Subset(dataset, range(_start_idx, _start_idx + _minibatch_size)),  
+    subset =  DataLoader(torch.utils.data.Subset(dataset, range(_start_idx, _start_idx + _minibatch_size)),  
                     batch_size=loader.batch_size, 
                     num_workers=loader.num_workers, 
                     collate_fn=loader.collate_fn,

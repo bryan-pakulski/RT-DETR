@@ -70,9 +70,9 @@ class BaseSolver(object):
         self.lr_scheduler = self.cfg.lr_scheduler
         self.lr_warmup_scheduler = self.cfg.lr_warmup_scheduler
 
-        self.train_dataloader = dist_utils.warp_loader(self.cfg.train_dataloader, \
+        self.train_dataloader = dist_utils.warp_loader(self.cfg, self.cfg.train_dataloader, \
             shuffle=self.cfg.train_dataloader.shuffle)
-        self.val_dataloader = dist_utils.warp_loader(self.cfg.val_dataloader, \
+        self.val_dataloader = dist_utils.warp_loader(self.cfg, self.cfg.val_dataloader, \
             shuffle=self.cfg.val_dataloader.shuffle)
 
         self.evaluator = self.cfg.evaluator
@@ -85,7 +85,7 @@ class BaseSolver(object):
     def eval(self, ):
         self._setup()
 
-        self.val_dataloader = dist_utils.warp_loader(self.cfg.val_dataloader, \
+        self.val_dataloader = dist_utils.warp_loader(self.cfg, self.cfg.val_dataloader, \
             shuffle=self.cfg.val_dataloader.shuffle)
 
         self.evaluator = self.cfg.evaluator

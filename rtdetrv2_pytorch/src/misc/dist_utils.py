@@ -99,9 +99,9 @@ def is_dist_available_and_initialized():
     return True
 
 # This is used to split the dataset into mini batches for GPU's with different memory sizes
-def subset_dataset_by_rank(config, dataloader, config_dataloader, shuffle=False):
-    _total_size = len(dataloader) * config_dataloader.batch_size
-    _minibatch_size = (_total_size // config.total_batch_size) * config_dataloader.batch_size
+def subset_dataset_by_rank(config, dataset, loader, shuffle=False):
+    _total_size = len(dataset) * loader.batch_size
+    _minibatch_size = (_total_size // config.total_batch_size) * loader.batch_size
 
     # Calculate the offset for our subset of the dataset based on rank position of the current gpu, this should mean that we guarantee the whole dataset is seen per each epoch
     _entries_per_batch = _total_size // config.total_batch_size
@@ -110,10 +110,10 @@ def subset_dataset_by_rank(config, dataloader, config_dataloader, shuffle=False)
         if idx == get_rank():
             break
         _start_idx += b * _entries_per_batch                
-    subset =  torch.utils.data.DataLoader(torch.utils.data.Subset(dataloader.dataset, range(_start_idx, _start_idx + _minibatch_size)),  
-                    batch_size=config_dataloader.batch_size, 
-                    num_workers=config_dataloader.num_workers, 
-                    collate_fn=config_dataloader.collate_fn,
+    subset =  torch.utils.data.DataLoader(torch.utils.data.Subset(dataset, range(_start_idx, _start_idx + _minibatch_size)),  
+                    batch_size=loader.batch_size, 
+                    num_workers=loader.num_workers, 
+                    collate_fn=loader.collate_fn,
                     shuffle=shuffle,)
 
     gprint(f"minibatch subset index: {_start_idx} -> {_start_idx + _minibatch_size} for rank: {get_rank()}")
@@ -180,18 +180,21 @@ def de_model(model):
     return de_parallel(de_complie(model))
 
 
-def warp_loader(loader, shuffle=False):        
+def warp_loader(config, loader, shuffle=False):        
     if is_dist_available_and_initialized():
 
-        # TODO: We should distribute based on the batch size instead of evenly splitting the dataset amongst workers
-        sampler = DistributedSampler(loader.dataset, shuffle=shuffle)
-        loader = DataLoader(loader.dataset, 
-                            loader.batch_size, 
-                            sampler=sampler, 
-                            drop_last=loader.drop_last, 
-                            collate_fn=loader.collate_fn, 
-                            pin_memory=loader.pin_memory,
-                            num_workers=loader.num_workers, )
+        if len(config.device_batch_split) > 0:
+            loader = subset_dataset_by_rank(config, loader.dataset, loader, shuffle=shuffle)
+        else:
+            dataset = loader.dataset
+            sampler = DistributedSampler(dataset, shuffle=shuffle)
+            loader = DataLoader(dataset, 
+                                loader.batch_size, 
+                                sampler=sampler, 
+                                drop_last=loader.drop_last, 
+                                collate_fn=loader.collate_fn, 
+                                pin_memory=loader.pin_memory,
+                                num_workers=loader.num_workers, )
     return loader
 
 

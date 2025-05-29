@@ -49,30 +49,17 @@ class DetSolver(BaseSolver):
         
         for epoch in range(start_epcoch, args.epoches):
             
-            # TODO: it seems the the dataset is already split for the dataloader before it gets to this train point, double check and move the subset dataset by rank call to further up the callstack
-
             self.train_dataloader.set_epoch(epoch)
             # self.train_dataloader.dataset.set_epoch(epoch)
             if dist_utils.is_dist_available_and_initialized():
                 self.train_dataloader.sampler.set_epoch(epoch)
-            
-            # NOTE: when using dynamic batch sizing for mixed gpu training our datasets can have different
-            # lengths due to batch size where number_of_train_iterations = dataset_size / batch_size which
-            # will cause hanging while we wait for each GPU to finish training and the first gpu to finish is calling for a sync
-            # We subset the dataset into mini batches if required so each GPU has the same number of samples during training
-            # NOTE: for validation we don't want to split into minibatches as we want to make sure that we are fully evaluating the model
-            if (dist_utils.is_parallel(self.model) and len(args.device_batch_split) > 0):
-                dist_utils.gprint("Building minibatch subset for training...")
-                train_subset = dist_utils.subset_dataset_by_rank(args, self.train_dataloader, args._train_dataloader, args._train_shuffle)
-            else:
-                train_subset = self.train_dataloader
+        
 
             # TODO: confirm that entries are correctly shuffled each epoch, save file to disk for debugging...
-
             train_stats = train_one_epoch(
                 self.model, 
                 self.criterion, 
-                train_subset, 
+                self.train_dataloader, 
                 self.optimizer, 
                 self.device, 
                 epoch, 

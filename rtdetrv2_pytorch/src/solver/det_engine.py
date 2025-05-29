@@ -19,12 +19,7 @@ from ..data import CocoEvaluator
 from ..misc import MetricLogger, SmoothedValue, dist_utils
 
 def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, writer, ema, scaler, lr_warmup_scheduler, max_norm, metric_logger, header):
-    iterations = 0
-
-    dist_utils.gprint(f"DET ENGINE: Dataloader length: {len(data_loader)} for rank: {dist_utils.get_rank()}")
-
     for i, (samples, targets) in enumerate(metric_logger.log_every(data_loader, print_freq, header)):
-        #dist_utils.gprint(f"rank {dist_utils.get_rank()}: iteration {i}")
         samples = samples.to(device)
         targets = [{k: v.to(device) for k, v in t.items()} for t in targets]
         global_step = epoch * len(data_loader) + i
@@ -100,10 +95,6 @@ def _train(model, criterion, data_loader, optimizer, device, epoch, print_freq, 
             for k, v in loss_dict_reduced.items():
                 writer.add_scalar(f'Loss/{k}', v.item(), global_step)
         
-        iterations += 1
-    
-    dist_utils.gprint(f"rank: {dist_utils.get_rank()} Finished training with {iterations} iterations")
-
 def train_one_epoch(model: torch.nn.Module, criterion: torch.nn.Module,
                     data_loader: Iterable, optimizer: torch.optim.Optimizer,
                     device: torch.device, epoch: int, max_norm: float = 0, **kwargs):

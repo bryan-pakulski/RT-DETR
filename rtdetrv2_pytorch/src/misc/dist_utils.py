@@ -115,7 +115,6 @@ def subset_dataset_by_rank(config, dataloader, config_dataloader, shuffle=False)
                     num_workers=config_dataloader.num_workers, 
                     collate_fn=config_dataloader.collate_fn,
                     shuffle=shuffle,)
-    subset = warp_loader(subset, shuffle=config)
 
     gprint(f"minibatch subset index: {_start_idx} -> {_start_idx + _minibatch_size} for rank: {get_rank()}")
     gprint(f"total minibatch size: {_minibatch_size}/{_total_size} for rank: {get_rank()}")
@@ -164,8 +163,6 @@ def warp_model(
 ):
     if is_dist_available_and_initialized():
         rank = get_rank()
-        # TODO: if we get model synchronisation failures using .join for non matched batch sizes we should use this:
-        # https://docs.pytorch.org/docs/stable/generated/torch.nn.parallel.DistributedDataParallel.html#torch.nn.parallel.DistributedDataParallel.join
         model = nn.SyncBatchNorm.convert_sync_batchnorm(model) if sync_bn else model 
         if dist_mode == 'dp':
             model = DP(model, device_ids=[rank], output_device=rank)
@@ -185,8 +182,9 @@ def de_model(model):
 
 def warp_loader(loader, shuffle=False):        
     if is_dist_available_and_initialized():
+
+        # TODO: We should distribute based on the batch size instead of evenly splitting the dataset amongst workers
         sampler = DistributedSampler(loader.dataset, shuffle=shuffle)
-        gprint(f"Got warped dataset for device {torch.cuda.current_device()} and rank {get_rank()} and loader batch size: {loader.batch_size}")
         loader = DataLoader(loader.dataset, 
                             loader.batch_size, 
                             sampler=sampler, 

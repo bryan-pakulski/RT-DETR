@@ -158,11 +158,11 @@ class YAMLConfig(BaseConfig):
         else:
             try:
                 if 'device_batch_split' in cfg and len(cfg['device_batch_split']) > 0:
-                    dist_utils.gprint(f'Use batch size split {cfg["device_batch_split"][torch.cuda.current_device()]} with device {torch.cuda.current_device()}')
+                    dist_utils.gprint(f'Using batch size {cfg["device_batch_split"][torch.cuda.current_device()]} with device {torch.cuda.current_device()}')
                     bs = cfg['device_batch_split'][torch.cuda.current_device()]
                     return bs
                 else:
-                    dist_utils.gprint(f'Use batch size {cfg["total_batch_size"]} with device {torch.cuda.current_device()}')
+                    dist_utils.gprint(f'Using batch size {cfg["total_batch_size"]} with device {torch.cuda.current_device()}')
             except Exception as e:
                 dist_utils.gprint(f'Error setting up batch size split for device {torch.cuda.current_device()}')
                 dist_utils.gprint(f'Error: {e}')

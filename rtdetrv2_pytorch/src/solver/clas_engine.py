@@ -8,17 +8,7 @@ from ..misc import (MetricLogger, SmoothedValue, reduce_dict)
 from ..misc import dist_utils
 
 def _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_freq, metric_logger, header):
-    iterations = 0
-
-    do_random_skip = False
-
-    dist_utils.gprint(f"CLAS ENGINE: Dataloader length: {len(dataloader)} for rank: {dist_utils.get_rank()}")
-
     for imgs, labels in metric_logger.log_every(dataloader, print_freq, header):
-
-        # TODO: If this worker process has unevenly sized batches, we want to use no_sync to accumulate gradients on the
-        # First iteration so that we can synchronize properly once the epoch is complete
-
         imgs = imgs.to(device)
         labels = labels.to(device)
 
@@ -34,10 +24,7 @@ def _train(model, criterion, dataloader, optimizer, ema, epoch, device, print_fr
         loss_reduced_values = {k: v.item() for k, v in reduce_dict({'loss': loss}).items()}
         metric_logger.update(**loss_reduced_values)
         metric_logger.update(lr=optimizer.param_groups[0]["lr"])
-        iterations += 1
     
-    dist_utils.gprint(f"rank: {dist_utils.get_rank()} Finished training with {iterations} iterations")
-
 def train_one_epoch(model: nn.Module, criterion: nn.Module, dataloader, optimizer, ema, epoch, device):
     """
     """

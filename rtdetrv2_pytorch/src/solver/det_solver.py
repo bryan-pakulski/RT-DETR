@@ -48,6 +48,8 @@ class DetSolver(BaseSolver):
         start_epcoch = self.last_epoch + 1
         
         for epoch in range(start_epcoch, args.epoches):
+            
+            # TODO: it seems the the dataset is already split for the dataloader before it gets to this train point, double check and move the subset dataset by rank call to further up the callstack
 
             self.train_dataloader.set_epoch(epoch)
             # self.train_dataloader.dataset.set_epoch(epoch)
@@ -64,6 +66,8 @@ class DetSolver(BaseSolver):
                 train_subset = dist_utils.subset_dataset_by_rank(args, self.train_dataloader, args._train_dataloader, args._train_shuffle)
             else:
                 train_subset = self.train_dataloader
+
+            # TODO: confirm that entries are correctly shuffled each epoch, save file to disk for debugging...
 
             train_stats = train_one_epoch(
                 self.model, 

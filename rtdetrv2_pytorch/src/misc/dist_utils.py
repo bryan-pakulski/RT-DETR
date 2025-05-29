@@ -23,6 +23,7 @@ from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.utils.data import DistributedSampler
 # from torch.utils.data.dataloader import DataLoader
 from ..data import DataLoader 
+from ..data.dataset.dbs_dataset import DBSDistributedSampler
 
 # Global print function overload, allows non master process to log
 def gprint(*args, **kwargs):
@@ -109,10 +110,13 @@ def subset_dataset_by_rank(config, dataset, loader, shuffle=False):
     for idx, b in enumerate(config.device_batch_split):
         if idx == get_rank():
             break
-        _start_idx += b * _entries_per_batch                
+        _start_idx += b * _entries_per_batch
+    sampler = DBSDistributedSampler(dataset, shuffle=shuffle)
     subset =  DataLoader(torch.utils.data.Subset(dataset, range(_start_idx, _start_idx + _minibatch_size)),  
-                    batch_size=loader.batch_size, 
-                    num_workers=loader.num_workers, 
+                    batch_size=loader.batch_size,
+                    sampler=sampler,
+                    num_workers=loader.num_workers,
+                    pin_memory=loader.pin_memory,
                     collate_fn=loader.collate_fn,
                     shuffle=shuffle,)
 

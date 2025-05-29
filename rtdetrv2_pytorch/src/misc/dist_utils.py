@@ -100,9 +100,10 @@ def is_dist_available_and_initialized():
     return True
 
 # This is used to split the dataset into mini batches for GPU's with different memory sizes
-def subset_dataset_by_rank(config, dataset, loader, shuffle=False):
-    _total_size = len(dataset) * loader.batch_size
-    _minibatch_size = (_total_size // config.total_batch_size) * loader.batch_size
+def subset_dataset_by_rank(config, dataset, loader, shuffle=False, subset=False):
+    _batch_size = config.device_batch_split[get_rank()]
+    _total_size = len(dataset)
+    _minibatch_size = (_total_size // config.total_batch_size) * _batch_size
 
     # Calculate the offset for our subset of the dataset based on rank position of the current gpu, this should mean that we guarantee the whole dataset is seen per each epoch
     _entries_per_batch = _total_size // config.total_batch_size
@@ -111,14 +112,20 @@ def subset_dataset_by_rank(config, dataset, loader, shuffle=False):
         if idx == get_rank():
             break
         _start_idx += b * _entries_per_batch
-    sampler = DBSDistributedSampler(dataset, shuffle=shuffle)
-    subset =  DataLoader(torch.utils.data.Subset(dataset, range(_start_idx, _start_idx + _minibatch_size)),  
-                    batch_size=loader.batch_size,
+    
+    if subset:
+        _ds = torch.utils.data.Subset(dataset, range(_start_idx, _start_idx + _minibatch_size))
+    else:
+        _ds = dataset # For validation, we don't want to partition and split the dataset for each rank, we should allow the whole dataset to be seen
+
+    sampler = DBSDistributedSampler(_ds, shuffle=shuffle)
+    subset =  DataLoader(_ds,  
+                    batch_size=_batch_size,
                     sampler=sampler,
                     num_workers=loader.num_workers,
                     pin_memory=loader.pin_memory,
                     collate_fn=loader.collate_fn,
-                    shuffle=shuffle,)
+                    )
 
     gprint(f"minibatch subset index: {_start_idx} -> {_start_idx + _minibatch_size} for rank: {get_rank()}")
     gprint(f"total minibatch size: {_minibatch_size}/{_total_size} for rank: {get_rank()}")
@@ -154,8 +161,6 @@ def save_on_master(*args, **kwargs):
     if is_main_process():
         torch.save(*args, **kwargs)
 
-
-
 def warp_model(
     model: torch.nn.Module, 
     sync_bn: bool=False, 
@@ -184,11 +189,11 @@ def de_model(model):
     return de_parallel(de_complie(model))
 
 
-def warp_loader(config, loader, shuffle=False):        
+def warp_loader(config, loader, shuffle=False, subset=False):        
     if is_dist_available_and_initialized():
 
         if len(config.device_batch_split) > 0:
-            loader = subset_dataset_by_rank(config, loader.dataset, loader, shuffle=shuffle)
+            loader = subset_dataset_by_rank(config, loader.dataset, loader, shuffle=shuffle, subset=subset)
         else:
             dataset = loader.dataset
             sampler = DistributedSampler(dataset, shuffle=shuffle)
